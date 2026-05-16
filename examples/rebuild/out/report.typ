@@ -31,6 +31,12 @@
 #let engagement_start = "May 1, 2026"
 #let engagement_end   = "May 14, 2026"
 
+// Network topology — set to a relative image path (e.g. "topology.png")
+// to render it as a figure in the Network Topology chapter. Leave as
+// `none` to show a placeholder. PNG / SVG / JPG all work.
+#let topology_image   = none
+#let topology_caption = "In-scope network — DMZ, application tier, and identity layer."
+
 
 // ── 2. BRAND + COLOR TOKENS  ────────────────────────────────────────────────
 #let BRAND = (
@@ -685,43 +691,7 @@
 #counter(page).update(1)
 
 
-// ── 8. DOCUMENT CONTROL  ────────────────────────────────────────────────────
-= Document Control
-
-#table(
-  columns: (auto, 1fr),
-  inset: (x: 12pt, y: 10pt), stroke: 0.5pt + BRAND.border,
-  fill: (x, _) => if x == 0 { BRAND.soft } else { none },
-  [*Client*],            [#client],
-  [*Engagement*],        [#engagement_id],
-  [*Engagement window*], [#engagement_start — #engagement_end],
-  [*Report version*],    [#report_version],
-  [*Report date*],
-    [#report_date.display("[month repr:long] [day], [year]")],
-  [*Classification*],
-    box(fill: BRAND.warn, inset: (x: 8pt, y: 2pt), radius: 999pt,
-      text(white, weight: "bold", size: 8pt, upper(classification))),
-  [*Prepared by*],       [#assessor_org],
-  [*Authors*],           [#authors.join(linebreak())],
-  [*Recipients*],        [#recipients.join(linebreak())],
-)
-
-== Version History
-#table(
-  columns: (auto, auto, 1fr, auto),
-  inset: (x: 12pt, y: 8pt), stroke: 0.5pt + BRAND.border,
-  fill: (_, y) => if y == 0 { BRAND.band } else { none },
-  text(white, weight: "bold")[Version],
-  text(white, weight: "bold")[Date],
-  text(white, weight: "bold")[Changes],
-  text(white, weight: "bold")[Author],
-  [0.1], [2026-05-10], [Initial draft], [Jane Doe],
-  [0.9], [2026-05-13], [Internal review pass], [John Smith],
-  [1.0], [2026-05-16], [Final delivery to client], [Jane Doe],
-)
-
-
-// ── 9. STATEMENT OF CONFIDENTIALITY  ────────────────────────────────────────
+// ── 8. STATEMENT OF CONFIDENTIALITY  ────────────────────────────────────────
 = Statement of Confidentiality
 
 This document contains information that is confidential and proprietary to
@@ -839,6 +809,61 @@ the environment evolves.
 External, grey-box. Testers were provided with one set of standard-user
 credentials for the partner portal. No source code or internal network
 access was provided.
+
+
+// ── 14b. NETWORK TOPOLOGY  ──────────────────────────────────────────────────
+= Network Topology
+
+The environment under test is summarized below. The diagram identifies
+trust boundaries between the public internet, the DMZ application tier,
+the internal data tier, and the identity / Active Directory layer.
+
+#if topology_image != none [
+  #figure(
+    image(topology_image, width: 100%),
+    caption: [#topology_caption],
+    kind: image,
+  )
+] else [
+  #block(
+    width: 100%, inset: 18pt, radius: 6pt,
+    stroke: 1pt + BRAND.border, fill: BRAND.soft,
+    [
+      #set text(fill: BRAND.muted, size: 10pt)
+      #align(center, [
+        #text(weight: "bold")[Network diagram pending.]
+        #v(4pt)
+        Set `#raw("#let topology_image = \"path/to/diagram.png\"")` in
+        the EDIT block at the top of this report to render the
+        environment diagram here.
+      ])
+    ]
+  )
+]
+
+== Network Segments
+#table(
+  columns: (auto, auto, 1fr, auto),
+  inset: 8pt, stroke: 0.5pt + BRAND.border,
+  fill: (_, y) => if y == 0 { BRAND.band } else { none },
+  text(white, weight: "bold")[Segment],
+  text(white, weight: "bold")[CIDR],
+  text(white, weight: "bold")[Purpose],
+  text(white, weight: "bold")[Trust],
+  [DMZ — Public Web], [203.0.113.0/29], [Customer + partner-facing apps],     [Untrusted],
+  [DMZ — VPN],        [203.0.113.16/29], [Remote-access concentrator],        [Untrusted],
+  [Internal — App],   [10.10.10.0/24],   [Application servers, microservices], [Trusted],
+  [Internal — Data],  [10.10.20.0/24],   [Databases, file storage],           [Trusted],
+  [Internal — AD],    [10.10.30.0/24],   [Domain controllers, identity stack], [Critical],
+  [Management],       [10.10.99.0/24],   [Out-of-band admin, jump hosts],     [Critical],
+)
+
+== Trust Boundaries
+- Public internet → DMZ is the only sanctioned ingress.
+- DMZ → Internal is firewalled; only specific application traffic is
+  permitted via documented rules.
+- Internal → AD is the most sensitive boundary; lateral movement here
+  is what most findings in this report ultimately enable.
 
 
 // ── 15. METHODOLOGY  ────────────────────────────────────────────────────────
