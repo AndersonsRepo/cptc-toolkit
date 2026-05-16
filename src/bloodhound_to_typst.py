@@ -346,6 +346,8 @@ def main(argv: list | None = None) -> int:
                         "Requires ANTHROPIC_API_KEY.")
     p.add_argument("--llm-model", default="claude-sonnet-4-6",
                    help="LLM model (default: claude-sonnet-4-6)")
+    p.add_argument("--llm-mode", default="auto", choices=("auto", "api", "cli"),
+                   help="LLM backend: api | cli | auto (default auto)")
     p.add_argument("--client", default="[CLIENT NAME]",
                    help="Client name for --draft-prose context")
     p.add_argument("--industry", default="",
@@ -378,7 +380,7 @@ def main(argv: list | None = None) -> int:
         if args.draft_prose:
             from draft_prose import apply_drafts
             apply_drafts(loaded, client=args.client, industry=args.industry,
-                         model=args.llm_model, verbose=True)
+                         model=args.llm_model, mode=args.llm_mode, verbose=True)
         fid = f"{args.prefix}-{n:03d}"
         out_lines.append(_ad_finding_to_typst(loaded, fid))
         print(f"[+] {path}: {len(loaded['steps'])} step(s) → {fid}",

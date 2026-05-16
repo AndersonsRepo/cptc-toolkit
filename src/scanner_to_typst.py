@@ -640,6 +640,10 @@ def main(argv: list | None = None) -> int:
     p.add_argument("--llm-model", default="claude-sonnet-4-6",
                    help="LLM model for --draft-prose (default: claude-sonnet-4-6; "
                         "use claude-haiku-4-5-20251001 for cheap mode)")
+    p.add_argument("--llm-mode", default="auto", choices=("auto", "api", "cli"),
+                   help="LLM backend: api (needs ANTHROPIC_API_KEY) | cli "
+                        "(uses Claude Code subscription via `claude -p`) | "
+                        "auto (prefer cli if installed, else api). Default: auto.")
     p.add_argument("--client", default="[CLIENT NAME]",
                    help="Client name passed to --draft-prose context")
     p.add_argument("--industry", default="",
@@ -717,7 +721,8 @@ def main(argv: list | None = None) -> int:
                 "hosts": list(f.hosts), "compliance": list(f.compliance),
             }
             apply_drafts(d, client=args.client, industry=args.industry,
-                         model=args.llm_model, verbose=True)
+                         model=args.llm_model, mode=args.llm_mode,
+                         verbose=True)
             f.business_impact = d.get("business_impact", f.business_impact)
             f.evidence = d.get("evidence", f.evidence)
             for fld in d.get("_ai_drafted", []):

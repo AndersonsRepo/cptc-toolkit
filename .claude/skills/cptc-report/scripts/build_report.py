@@ -162,6 +162,8 @@ def main(argv: list | None = None) -> int:
                          "Requires ANTHROPIC_API_KEY.")
     ap.add_argument("--llm-model", default="claude-sonnet-4-6",
                     help="Model for --draft-prose (default: claude-sonnet-4-6)")
+    ap.add_argument("--llm-mode", default="auto", choices=("auto", "api", "cli"),
+                    help="LLM backend: api | cli (Claude Code subscription) | auto")
     ap.add_argument("--industry", default="",
                     help="Client industry for --draft-prose context")
     args = ap.parse_args(argv)
@@ -191,6 +193,7 @@ def main(argv: list | None = None) -> int:
         prose_args = [
             "--draft-prose",
             "--llm-model", args.llm_model,
+            "--llm-mode", args.llm_mode,
             "--client", meta.get("client") or "[CLIENT NAME]",
         ]
         if args.industry:

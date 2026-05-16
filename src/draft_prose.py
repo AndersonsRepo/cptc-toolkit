@@ -31,6 +31,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -42,32 +44,58 @@ DEFAULT_MODEL = "claude-sonnet-4-6"
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
 USER_AGENT = "cptc-toolkit/0.6 (github.com/AndersonsRepo/cptc-toolkit)"
 
+# LLM access mode — process-wide default, overridable per-call.
+#   "api"  — direct REST to /v1/messages, requires ANTHROPIC_API_KEY
+#   "cli"  — subprocess `claude -p`, uses the Claude Code subscription
+#   "auto" — prefer cli if `claude` is on PATH, else api
+LLM_MODE = os.environ.get("CPTC_LLM_MODE", "auto").strip().lower()
+
 CACHE_DIR = Path.home() / ".cache" / "cptc-toolkit" / "prose"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
-# Anthropic REST client (stdlib only)
+# Mode resolution
 # ---------------------------------------------------------------------------
 
-def _api_key() -> str:
-    k = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not k:
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY env var not set — "
-            "required for --draft-prose. Pipeline runs without it; just "
-            "drop the flag to skip the LLM step."
-        )
-    return k
+def _resolve_mode(mode: str | None) -> str:
+    """Pick api vs cli based on user request + what's actually available."""
+    requested = (mode or LLM_MODE or "auto").lower()
+    if requested == "api":
+        if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+            raise RuntimeError(
+                "--llm-mode api requested but ANTHROPIC_API_KEY env var is empty."
+            )
+        return "api"
+    if requested == "cli":
+        if not shutil.which("claude"):
+            raise RuntimeError(
+                "--llm-mode cli requested but `claude` binary not on PATH. "
+                "Install Claude Code (https://docs.claude.com/en/docs/claude-code) "
+                "or use --llm-mode api with ANTHROPIC_API_KEY set."
+            )
+        return "cli"
+    # auto: prefer cli (free for subscription users), fall back to api
+    if shutil.which("claude"):
+        return "cli"
+    if os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        return "api"
+    raise RuntimeError(
+        "No LLM backend available — install Claude Code (`claude` CLI) "
+        "or set ANTHROPIC_API_KEY."
+    )
 
 
-def _call_claude(
+# ---------------------------------------------------------------------------
+# Backend A: direct API
+# ---------------------------------------------------------------------------
+
+def _call_via_api(
     system_prompt: str,
     user_prompt: str,
-    model: str = DEFAULT_MODEL,
-    max_tokens: int = 400,
+    model: str,
+    max_tokens: int,
 ) -> str:
-    """One-shot Anthropic /v1/messages call. Returns the text content."""
     body = json.dumps({
         "model": model,
         "max_tokens": max_tokens,
@@ -78,7 +106,7 @@ def _call_claude(
         API_URL,
         data=body,
         headers={
-            "x-api-key": _api_key(),
+            "x-api-key": os.environ["ANTHROPIC_API_KEY"].strip(),
             "anthropic-version": ANTHROPIC_VERSION,
             "content-type": "application/json",
             "user-agent": USER_AGENT,
@@ -97,6 +125,73 @@ def _call_claude(
     if not content or content[0].get("type") != "text":
         raise RuntimeError(f"Unexpected response shape: {data}")
     return content[0]["text"].strip()
+
+
+# ---------------------------------------------------------------------------
+# Backend B: claude CLI subprocess (uses subscription)
+# ---------------------------------------------------------------------------
+
+def _call_via_cli(
+    system_prompt: str,
+    user_prompt: str,
+    model: str,
+    max_tokens: int,
+) -> str:
+    """Call `claude -p`, scrubbing env so it uses subscription auth.
+
+    Key behaviors:
+      • Strips ANTHROPIC_API_KEY from the child env. If left in, claude -p
+        switches to API billing instead of using the subscription.
+      • Strips CLAUDE* vars (CLAUDECODE, CLAUDE_CODE_ENTRYPOINT) to avoid
+        the "Cannot be launched inside another Claude Code session" error.
+      • Uses `--dangerously-skip-permissions` so it runs unattended.
+      • Combines system + user into a single prompt argument (Claude CLI
+        does not expose a separate system slot for -p, so we prefix).
+    """
+    env = {
+        k: v for k, v in os.environ.items()
+        if k != "ANTHROPIC_API_KEY" and not k.startswith("CLAUDE")
+    }
+    full_prompt = f"{system_prompt}\n\n---\n\n{user_prompt}"
+    cmd = [
+        "claude", "-p",
+        "--model", model,
+        "--dangerously-skip-permissions",
+        "--", full_prompt,
+    ]
+    try:
+        res = subprocess.run(
+            cmd, env=env,
+            capture_output=True, text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("claude CLI timed out after 120s") from None
+    except FileNotFoundError:
+        raise RuntimeError("claude binary not found on PATH") from None
+    if res.returncode != 0:
+        raise RuntimeError(
+            f"claude CLI exit {res.returncode}: {(res.stderr or '')[:300]}"
+        )
+    return (res.stdout or "").strip()
+
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+def _call_claude(
+    system_prompt: str,
+    user_prompt: str,
+    model: str = DEFAULT_MODEL,
+    max_tokens: int = 400,
+    mode: str | None = None,
+) -> str:
+    """Route to either the REST API or the `claude` CLI based on mode."""
+    resolved = _resolve_mode(mode)
+    if resolved == "api":
+        return _call_via_api(system_prompt, user_prompt, model, max_tokens)
+    return _call_via_cli(system_prompt, user_prompt, model, max_tokens)
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +257,7 @@ def draft_business_impact(
     client: str = "[CLIENT NAME]",
     industry: str = "",
     model: str = DEFAULT_MODEL,
+    mode: str | None = None,
 ) -> str:
     """Returns a 2-4 sentence business-impact paragraph for this finding."""
     in_kev = any(
@@ -193,7 +289,8 @@ def draft_business_impact(
             f"Description:\n{(finding.get('description') or '')[:1500]}\n\n"
             f"Write the business-impact paragraph now."
         )
-        return _call_claude(BUSINESS_IMPACT_SYSTEM, user, model=model, max_tokens=400)
+        return _call_claude(BUSINESS_IMPACT_SYSTEM, user, model=model,
+                            max_tokens=400, mode=mode)
 
     return _cached("impact", payload, _fresh)
 
@@ -201,6 +298,7 @@ def draft_business_impact(
 def draft_evidence_intro(
     finding: dict,
     model: str = DEFAULT_MODEL,
+    mode: str | None = None,
 ) -> str:
     """Returns a short narration to prepend to the evidence section.
     Empty string if there's nothing to narrate."""
@@ -222,7 +320,8 @@ def draft_evidence_intro(
             f"EVIDENCE PAYLOAD (first 300 chars, for context):\n{raw_ev[:300]}\n\n"
             f"Write the 1-2 sentence intro now."
         )
-        return _call_claude(EVIDENCE_INTRO_SYSTEM, user, model=model, max_tokens=150)
+        return _call_claude(EVIDENCE_INTRO_SYSTEM, user, model=model,
+                            max_tokens=150, mode=mode)
 
     return _cached("evidence-intro", payload, _fresh)
 
@@ -237,6 +336,7 @@ def apply_drafts(
     client: str = "[CLIENT NAME]",
     industry: str = "",
     model: str = DEFAULT_MODEL,
+    mode: str | None = None,
     verbose: bool = False,
 ) -> dict:
     """Run the LLM passes on a finding. Records which fields were drafted
@@ -251,7 +351,8 @@ def apply_drafts(
                   file=sys.stderr)
         try:
             finding["business_impact"] = draft_business_impact(
-                finding, client=client, industry=industry, model=model)
+                finding, client=client, industry=industry,
+                model=model, mode=mode)
             drafted.append("business-impact")
         except RuntimeError as e:
             print(f"[draft] business-impact skipped: {e}", file=sys.stderr)
@@ -263,7 +364,7 @@ def apply_drafts(
             print(f"[draft] evidence-intro ← {finding.get('id') or finding.get('title','?')[:60]}",
                   file=sys.stderr)
         try:
-            intro = draft_evidence_intro(finding, model=model)
+            intro = draft_evidence_intro(finding, model=model, mode=mode)
             if intro:
                 finding["evidence"] = intro + "\n\n" + raw_ev
                 drafted.append("evidence-intro")
@@ -282,17 +383,21 @@ def apply_drafts(
 def _standalone() -> int:
     import argparse
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--check-key", action="store_true",
-                   help="Verify ANTHROPIC_API_KEY is set + reachable")
+    p.add_argument("--check", action="store_true",
+                   help="Verify an LLM backend is available + reachable")
+    p.add_argument("--llm-mode", default="auto", choices=("auto", "api", "cli"),
+                   help="api | cli | auto (default auto: prefer cli if installed)")
     args = p.parse_args()
-    if args.check_key:
+    if args.check:
         try:
-            _api_key()
-            print("[+] ANTHROPIC_API_KEY is set.")
-            # Send a 3-token ping
-            text = _call_claude("You reply with one word.", "Say: ok",
-                                model=HAIKU_MODEL, max_tokens=10)
-            print(f"[+] API reachable. Haiku replied: {text!r}")
+            resolved = _resolve_mode(args.llm_mode)
+            print(f"[+] LLM backend: {resolved}")
+            text = _call_claude(
+                "You reply with one word.", "Say: ok",
+                model=HAIKU_MODEL if resolved == "api" else DEFAULT_MODEL,
+                max_tokens=10, mode=args.llm_mode,
+            )
+            print(f"[+] Reachable. Reply: {text[:80]!r}")
             return 0
         except RuntimeError as e:
             print(f"[!] {e}", file=sys.stderr)
