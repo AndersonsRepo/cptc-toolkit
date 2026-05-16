@@ -134,10 +134,65 @@ sometimes `remediation` (scanner-supplied remediation is generic).
 - **No attack-narrative generation.** The competition-winning narrative
   is yours to write — it's most of your score.
 
+## v0.2 — BloodHound → attack-path findings
+
+CPTC AD findings are *chains*. `src/bloodhound_to_typst.py` turns a
+BloodHound CE path JSON (or a hand-written simplified path) into a
+`#finding(...)` whose `evidence:` field is a clean vertical flow of
+kind-tagged node boxes connected by edge labels. The flow renders via
+the `#attack-path(...)` helper added to the template.
+
+```bash
+# Generate from a simplified manual JSON (recommended during competition)
+python3 src/bloodhound_to_typst.py examples/bloodhound-kerberoast-esc1.json \
+  --prefix AD -o ad-findings.typ
+
+# Or stack multiple paths into one report
+python3 src/bloodhound_to_typst.py path1.json path2.json path3.json \
+  --prefix AD -o ad-findings.typ
+```
+
+### Simplified path format (write these by hand)
+
+```json
+{
+  "title": "Domain Admin via Kerberoast + ESC1",
+  "severity": "critical",
+  "cvss_score": 9.0,
+  "hosts": ["corp-dc01.corp.local"],
+  "description": "...",
+  "business_impact": "...",
+  "remediation": "...",
+  "mitre_attack": ["T1558.003", "T1649"],
+  "path": [
+    {"kind": "User",         "name": "JANE@CORP.LOCAL",
+     "edge_out": "HasSession"},
+    {"kind": "User",         "name": "SQLSVC@CORP.LOCAL",
+     "edge_out": "Kerberoastable → cracked offline"},
+    {"kind": "CertTemplate", "name": "VulnerableUserCert",
+     "edge_out": "Enroll → ESC1"},
+    {"kind": "Group",        "name": "DOMAIN ADMINS"}
+  ]
+}
+```
+
+### BloodHound CE API format
+
+Also accepted directly:
+
+```bash
+# Pull a path from BloodHound CE's REST API and convert
+curl -s -H "Authorization: $BH_TOKEN" \
+  "https://bh.local/api/v2/graphs/cypher" \
+  --data '{"query": "MATCH p=(...)..."}' \
+  -o /tmp/path.json
+python3 src/bloodhound_to_typst.py /tmp/path.json -o ad-findings.typ
+```
+
+The script auto-detects which format you fed it.
+
 ## Roadmap
 
-- **v0.2** — BloodHound JSON → evidence-block helper (AD attack paths
-  pasted as a single `evidence:` block)
 - **v0.3** — CVE enrichment pass (NVD + CISA KEV + EPSS + MITRE ATT&CK
   STIX) so the cross-reference rows are always canonical
 - **v0.4** — PwnDoc-NG YAML vuln-DB lookup to back-fill `description` and

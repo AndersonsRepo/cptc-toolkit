@@ -34,7 +34,7 @@
 #raw("LDAP callback to attacker.example.com:1389\n", block: true)],
   remediation: [Upgrade Apache Log4j2 to a version of 2.17.0 (Java 8) or 2.12.3 (Java 7) or 2.3.1 (Java 6).],
   cwe: ("CWE-77", "CWE-502"),
-  references: ("https://logging.apache.org/log4j/2.x/security.html", "https://nvd.nist.gov/vuln/detail/CVE-2021-44228", "https://nvd.nist.gov/vuln/detail/cve-2021-44228"),
+  references: ("https://logging.apache.org/log4j/2.x/security.html", "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"),
 )
 
 // Source: nuclei:['pdteam']

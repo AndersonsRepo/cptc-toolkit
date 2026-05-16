@@ -1,0 +1,63 @@
+{
+  "title": "Domain Admin compromise via Kerberoast + AD CS ESC1",
+  "severity": "critical",
+  "cvss_score": 9.0,
+  "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:C/C:H/I:H/A:H",
+  "hosts": [
+    "corp-dc01.corp.local",
+    "corp-ca01.corp.local"
+  ],
+  "description": "A standard domain user (JANE) can chain a Kerberoast against the SQLSVC service account with an ESC1-misconfigured certificate template (VulnerableUserCert) to obtain a TGT impersonating any user — including Domain Admins. The path requires no prior elevation; the only prerequisite is an authenticated session on a domain-joined host.",
+  "business_impact": "Full compromise of the corp.local forest. An attacker who walks this path gains domain-administrator-equivalent control over every host, every account, and every certificate issued in the environment. Recovery requires a full domain-wide credential reset and the revocation/re-issuance of every certificate issued by CORP-CA01.",
+  "remediation": "Three independent fixes — apply all of them: (1) Set a 30+ character random password on SQLSVC and/or migrate to a Group Managed Service Account (gMSA) to defeat offline Kerberoasting. (2) Remove the `ENROLLEE_SUPPLIES_SUBJECT` flag from the VulnerableUserCert template, or restrict its enrollment ACL to a known-good security group. (3) Audit AD CS templates with `Certify.exe find /vulnerable` and remediate every ESC1–ESC8 finding, not only this one.",
+  "mitre_attack": [
+    "T1558.003 — Kerberoasting",
+    "T1649 — Steal or Forge Authentication Certificates",
+    "T1078.002 — Valid Accounts: Domain Accounts"
+  ],
+  "cwe": [
+    "CWE-732",
+    "CWE-269"
+  ],
+  "compliance": [
+    "NIST SP 800-53 AC-6 (Least Privilege)",
+    "CIS Controls v8 5.4"
+  ],
+  "references": [
+    "https://specterops.io/blog/2022/06/21/certified-pre-owned/",
+    "https://github.com/GhostPack/Certify",
+    "https://attack.mitre.org/techniques/T1558/003/"
+  ],
+  "path_title": "Compromise chain — Kerberoast → ESC1 → Domain Admin",
+  "path": [
+    {
+      "kind": "User",
+      "name": "JANE@CORP.LOCAL",
+      "edge_out": "HasSession on CORP-WS07 (initial foothold)"
+    },
+    {
+      "kind": "Computer",
+      "name": "CORP-WS07.CORP.LOCAL",
+      "edge_out": "Enumerates SPNs via GetUserSPNs.py"
+    },
+    {
+      "kind": "User",
+      "name": "SQLSVC@CORP.LOCAL",
+      "edge_out": "Kerberoastable → 7-char password cracked offline in 4h"
+    },
+    {
+      "kind": "CertTemplate",
+      "name": "VulnerableUserCert (Enrollee Supplies Subject)",
+      "edge_out": "Enroll → request cert with subjectAltName = Administrator (ESC1)"
+    },
+    {
+      "kind": "CertAuthority",
+      "name": "CORP-CA01\\corp-ca01-CA",
+      "edge_out": "Issues certificate, Rubeus.exe asktgt /user:Administrator /certificate:...pfx"
+    },
+    {
+      "kind": "Group",
+      "name": "DOMAIN ADMINS@CORP.LOCAL"
+    }
+  ]
+}
