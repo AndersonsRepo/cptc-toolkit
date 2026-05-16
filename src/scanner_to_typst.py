@@ -622,6 +622,8 @@ def main(argv: list | None = None) -> int:
                    help="Finding ID prefix (default: F → F-001, F-002, ...)")
     p.add_argument("--no-dedupe", action="store_true",
                    help="Skip dedup pass (same title + hosts)")
+    p.add_argument("--enrich", action="store_true",
+                   help="Run NVD + CISA KEV + EPSS enrichment on CVE-tagged findings")
 
     args = p.parse_args(argv)
 
@@ -648,6 +650,41 @@ def main(argv: list | None = None) -> int:
         before = len(findings)
         findings = dedupe_and_sort(findings)
         print(f"[+] Dedup + sort: {before} → {len(findings)}", file=sys.stderr)
+
+    if args.enrich:
+        from enrich import enrich_finding_dict, get_kev_set
+        kev = get_kev_set()
+        print(f"[+] Enriching against NVD + KEV ({len(kev)} CVEs) + EPSS",
+              file=sys.stderr)
+        for f in findings:
+            d = {
+                "title": f.title, "description": f.description,
+                "evidence": f.evidence, "references": list(f.references),
+                "cvss_score": f.cvss_score, "cvss_vector": f.cvss_vector,
+                "cwe": list(f.cwe), "compliance": list(f.compliance),
+                "axis_risk": f.axis_risk,
+                "axis_sophistication": f.axis_sophistication,
+                "business_impact": f.business_impact,
+                "likelihood": f.likelihood,
+            }
+            enrich_finding_dict(d, kev_set=kev, verbose=True)
+            # Write back
+            f.cvss_score = d.get("cvss_score", f.cvss_score)
+            f.cvss_vector = d.get("cvss_vector", f.cvss_vector)
+            f.cvss_criteria = parse_cvss_vector(f.cvss_vector) or f.cvss_criteria
+            f.cwe = d.get("cwe", f.cwe)
+            f.compliance = d.get("compliance", f.compliance)
+            f.references = d.get("references", f.references)
+            f.description = d.get("description", f.description)
+            f.business_impact = d.get("business_impact", f.business_impact)
+            f.axis_risk = d.get("axis_risk", f.axis_risk)
+            f.axis_sophistication = d.get("axis_sophistication", f.axis_sophistication)
+            f.likelihood = d.get("likelihood", f.likelihood)
+            # If CVSS score moved, re-bucket severity
+            if f.cvss_score:
+                f.severity = _severity_from_cvss(f.cvss_score)
+        # Re-sort in case enrichment changed severity
+        findings.sort(key=lambda f: -SEVERITY_ORDER.get(f.severity, 0))
 
     out = emit_typst(findings, start_id=args.start_id, prefix=args.prefix)
     args.output.write_text(out, encoding="utf-8")

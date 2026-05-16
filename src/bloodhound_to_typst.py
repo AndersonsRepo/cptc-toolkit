@@ -331,6 +331,8 @@ def main(argv: list | None = None) -> int:
                    help="Starting finding ID (default 1)")
     p.add_argument("--prefix", default="AD",
                    help="Finding ID prefix (default: AD → AD-001)")
+    p.add_argument("--enrich", action="store_true",
+                   help="Enrich via NVD + KEV + EPSS (rarely useful for AD chains, but supported)")
 
     args = p.parse_args(argv)
 
@@ -341,12 +343,21 @@ def main(argv: list | None = None) -> int:
         "// adapter-generated scanner findings.\n",
     ]
 
+    kev = None
+    if args.enrich:
+        from enrich import get_kev_set, enrich_finding_dict
+        kev = get_kev_set()
+        print(f"[+] Enrichment enabled (KEV: {len(kev)} CVEs)",
+              file=sys.stderr)
+
     n = args.start_id
     for path in args.paths:
         if not path.exists():
             print(f"[!] Missing: {path}", file=sys.stderr)
             return 2
         loaded = load_bloodhound(path)
+        if args.enrich:
+            enrich_finding_dict(loaded, kev_set=kev, verbose=True)
         fid = f"{args.prefix}-{n:03d}"
         out_lines.append(_ad_finding_to_typst(loaded, fid))
         print(f"[+] {path}: {len(loaded['steps'])} step(s) → {fid}",
