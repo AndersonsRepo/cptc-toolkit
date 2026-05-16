@@ -41,7 +41,7 @@ Do NOT trigger when:
 ## Invocation
 
 ```bash
-# From the cptc-toolkit repo:
+# Minimum: scans dir + output dir
 ./.claude/skills/cptc-report/scripts/run.sh \
     --scans /path/to/scans \
     --out   /path/to/output-dir \
@@ -49,13 +49,19 @@ Do NOT trigger when:
     --engagement "CPTC10-Finals" \
     --enrich
 
-# Or via the Python equivalent:
-python3 .claude/skills/cptc-report/scripts/build_report.py \
+# With LLM prose-fill (v0.6) — fills business-impact + evidence-intro
+# on every finding. Marks each AI-written field with a `// AI-DRAFT`
+# comment in the .typ source for review.
+ANTHROPIC_API_KEY=sk-ant-... \
+./.claude/skills/cptc-report/scripts/run.sh \
     --scans /path/to/scans \
     --out   /path/to/output-dir \
     --client "OuiCroissant" \
-    --engagement "CPTC10-Finals" \
-    --enrich
+    --industry "hospitality" \
+    --enrich --draft-prose
+
+# Cheap mode (Haiku instead of Sonnet): ~5× cheaper, slightly less polished prose
+... --draft-prose --llm-model claude-haiku-4-5-20251001
 ```
 
 ### Input directory layout (auto-detected)
@@ -85,17 +91,32 @@ out/
 1. **Never overwrite scanner-provided text.** Boilerplate fills only
    empty fields. The scanner's `description`/`remediation` always wins.
 2. **Keep the LLM out of CVSS / CWE / KEV assignment.** Those come from
-   NVD canonical data. Don't "improve" them.
+   NVD canonical data. Don't "improve" them — the API call's system prompt
+   forbids it and the input doesn't even hand it to the model for writing.
 3. **The LLM owns only `business-impact` prose and `evidence` narration.**
-   After the pipeline runs, the operator (or an interactive Claude
-   session) should review every generated `business-impact` field and
-   tighten it to the engagement's specific client. The pipeline puts a
-   placeholder in every empty one.
-4. **The pipeline is deterministic.** Same scan input + same boilerplate
-   version = byte-identical findings. Don't introduce LLM steps in the
-   pipeline; reserve LLM for the prose review pass.
-5. **Don't push findings via the Discord notification queue.** The queue
-   is text-only. Report output goes to disk + GitHub.
+   Every drafted field is tagged with `// AI-DRAFT: <fields>` in the
+   `.typ` source. Reviewer greps for `AI-DRAFT` and edits each one before
+   delivery. The marker is a hard requirement — never strip it pre-review.
+4. **Default pipeline is deterministic.** `--draft-prose` is opt-in. Same
+   scan input + same boilerplate version = byte-identical findings when
+   the flag is off.
+5. **Don't push findings via the Discord notification queue's text channel.**
+   The bot's notification queue does support file attachments (via the
+   `files:` array — see `bridges/discord/discord-transport.ts:946-994`),
+   but the embed-text portion is capped at 4000 chars. Compiled PDFs go
+   in the queue as attachments; prose findings stay on disk + GitHub.
+
+## v0.6 cost notes
+
+Per standard 10-finding report:
+
+| Model                      | Per finding | Per report | Notes |
+| -------------------------- | ----------- | ---------- | ----- |
+| `claude-sonnet-4-6`        | ~$0.01      | ~$0.10     | Default. Best prose. |
+| `claude-haiku-4-5-...`     | ~$0.002     | ~$0.02     | `--llm-model claude-haiku-4-5-20251001` |
+
+Cache hits are free — editing the report and re-running costs nothing
+for unchanged findings. Cache lives at `~/.cache/cptc-toolkit/prose/`.
 
 ## Companion repo
 

@@ -191,14 +191,47 @@ python3 src/bloodhound_to_typst.py /tmp/path.json -o ad-findings.typ
 
 The script auto-detects which format you fed it.
 
+## v0.6 — LLM prose-fill (`--draft-prose`)
+
+After the deterministic pipeline runs, optionally call Claude to fill
+**only** the prose-only fields:
+
+- `business-impact` — 2–4 sentence client-language paragraph
+- `evidence` — 1–2 sentence narration intro prepended to the raw payload
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+python3 .claude/skills/cptc-report/scripts/build_report.py \
+        --scans  examples/rebuild/scans \
+        --out    examples/rebuild/out \
+        --client "OuiCroissant" --industry "hospitality" \
+        --enrich --draft-prose
+```
+
+Every AI-drafted field gets a `// AI-DRAFT: <field-names>` comment in
+the `.typ` source above its `#finding(...)` block. Reviewer greps for
+`AI-DRAFT` to find what needs a human eye before publication.
+
+**Cost** (per 10-finding report, 2026 list prices):
+
+| Model                          | Per report |
+| ------------------------------ | ---------- |
+| `claude-sonnet-4-6` (default)  | ~$0.10     |
+| `claude-haiku-4-5-20251001`    | ~$0.02     |
+
+Disk cache at `~/.cache/cptc-toolkit/prose/` makes re-renders free for
+unchanged findings.
+
+**Off the table by design**: CVSS / CWE / KEV / hosts / IDs / references
+all stay deterministic. The LLM's prompts forbid touching them and the
+input doesn't hand them over for writing. Hallucination risk on those
+fields is too high to accept.
+
 ## Roadmap
 
-- **v0.3** — CVE enrichment pass (NVD + CISA KEV + EPSS + MITRE ATT&CK
-  STIX) so the cross-reference rows are always canonical
-- **v0.4** — PwnDoc-NG YAML vuln-DB lookup to back-fill `description` and
-  `remediation` from community-maintained boilerplate keyed by CWE
-- **v0.5** — Claude skill packaging so an agent can run the pipeline
-  end-to-end with a single prompt
+- **v0.7** — Chapter-level LLM drafts (Executive Summary, Attack
+  Narrative, Key Areas for Improvement) wired into `build_report.py`.
+  Skipped for v0.6 because chapter prose is operator-judgment-heavy.
 
 ## License
 

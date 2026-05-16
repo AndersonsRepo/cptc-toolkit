@@ -157,6 +157,13 @@ def main(argv: list | None = None) -> int:
                     help="Override report title")
     ap.add_argument("--no-compile", action="store_true",
                     help="Skip the typst compile step (write .typ only)")
+    ap.add_argument("--draft-prose", action="store_true",
+                    help="LLM pass on business-impact + evidence-intro fields. "
+                         "Requires ANTHROPIC_API_KEY.")
+    ap.add_argument("--llm-model", default="claude-sonnet-4-6",
+                    help="Model for --draft-prose (default: claude-sonnet-4-6)")
+    ap.add_argument("--industry", default="",
+                    help="Client industry for --draft-prose context")
     args = ap.parse_args(argv)
 
     if not args.scans.exists():
@@ -179,6 +186,16 @@ def main(argv: list | None = None) -> int:
         "report_title": args.report_title,
     })
 
+    prose_args: list = []
+    if args.draft_prose:
+        prose_args = [
+            "--draft-prose",
+            "--llm-model", args.llm_model,
+            "--client", meta.get("client") or "[CLIENT NAME]",
+        ]
+        if args.industry:
+            prose_args += ["--industry", args.industry]
+
     # Run scanner_to_typst.py if we have any input it accepts
     scanner_out = args.out / "findings.typ"
     if inputs["nuclei"] or inputs["sarif"]:
@@ -190,6 +207,7 @@ def main(argv: list | None = None) -> int:
         cmd += ["-o", str(scanner_out)]
         if args.enrich:
             cmd.append("--enrich")
+        cmd += prose_args
         if not run_step("scanner_to_typst", cmd):
             return 3
     else:
@@ -205,6 +223,7 @@ def main(argv: list | None = None) -> int:
         ]
         if args.enrich:
             cmd.append("--enrich")
+        cmd += prose_args
         if not run_step("bloodhound_to_typst", cmd):
             return 4
     else:

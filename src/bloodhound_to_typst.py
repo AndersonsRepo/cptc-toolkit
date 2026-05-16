@@ -307,8 +307,16 @@ def _ad_finding_to_typst(f: dict, fid: str) -> str:
         fields.append(("references", _typst_str_array(f["references"])))
 
     rendered = ",\n  ".join(f"{k}: {v}" for k, v in fields)
+    marker = ""
+    drafted = f.get("_ai_drafted") or []
+    if drafted:
+        marker = (
+            f"// AI-DRAFT: {', '.join(drafted)} "
+            f"— review before publication\n"
+        )
     return (
         f"// Source: bloodhound — {len(f.get('steps', []))} step(s)\n"
+        f"{marker}"
         f"#finding(\n  {rendered},\n)\n"
     )
 
@@ -333,6 +341,15 @@ def main(argv: list | None = None) -> int:
                    help="Finding ID prefix (default: AD → AD-001)")
     p.add_argument("--enrich", action="store_true",
                    help="Enrich via NVD + KEV + EPSS (rarely useful for AD chains, but supported)")
+    p.add_argument("--draft-prose", action="store_true",
+                   help="Use Anthropic API to draft business-impact + evidence-intro. "
+                        "Requires ANTHROPIC_API_KEY.")
+    p.add_argument("--llm-model", default="claude-sonnet-4-6",
+                   help="LLM model (default: claude-sonnet-4-6)")
+    p.add_argument("--client", default="[CLIENT NAME]",
+                   help="Client name for --draft-prose context")
+    p.add_argument("--industry", default="",
+                   help="Client industry for --draft-prose context")
 
     args = p.parse_args(argv)
 
@@ -358,6 +375,10 @@ def main(argv: list | None = None) -> int:
         loaded = load_bloodhound(path)
         if args.enrich:
             enrich_finding_dict(loaded, kev_set=kev, verbose=True)
+        if args.draft_prose:
+            from draft_prose import apply_drafts
+            apply_drafts(loaded, client=args.client, industry=args.industry,
+                         model=args.llm_model, verbose=True)
         fid = f"{args.prefix}-{n:03d}"
         out_lines.append(_ad_finding_to_typst(loaded, fid))
         print(f"[+] {path}: {len(loaded['steps'])} step(s) → {fid}",
