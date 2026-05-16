@@ -223,6 +223,67 @@ def epss_to_likelihood(score: float) -> str:
 
 
 # ---------------------------------------------------------------------------
+# CWE boilerplate (v0.4)
+# ---------------------------------------------------------------------------
+
+_CWE_BOILERPLATE: dict | None = None
+
+
+def _load_boilerplate() -> dict:
+    """Load and cache the bundled CWE boilerplate JSON."""
+    global _CWE_BOILERPLATE
+    if _CWE_BOILERPLATE is not None:
+        return _CWE_BOILERPLATE
+    # data/cwe-boilerplate.json lives two levels up from this file
+    candidates = [
+        Path(__file__).resolve().parent.parent / "data" / "cwe-boilerplate.json",
+        Path(__file__).resolve().parent / "data" / "cwe-boilerplate.json",
+        Path.cwd() / "data" / "cwe-boilerplate.json",
+    ]
+    for p in candidates:
+        if p.exists():
+            _CWE_BOILERPLATE = json.loads(p.read_text(encoding="utf-8"))
+            return _CWE_BOILERPLATE
+    print(f"[!] cwe-boilerplate.json not found — searched: {candidates}",
+          file=sys.stderr)
+    _CWE_BOILERPLATE = {}
+    return _CWE_BOILERPLATE
+
+
+def boilerplate_for_cwe(cwe: str) -> dict | None:
+    """Return the boilerplate dict for a CWE (e.g. 'CWE-89'), or None."""
+    book = _load_boilerplate()
+    return book.get(cwe.upper())
+
+
+def apply_boilerplate(f: dict) -> dict:
+    """Fill empty description/remediation/references from CWE boilerplate.
+
+    Never overwrites scanner-supplied text. Uses the FIRST CWE on the
+    finding as the lookup key (most findings tie to a single weakness).
+    """
+    cwes = f.get("cwe") or []
+    if not cwes:
+        return f
+    bp = boilerplate_for_cwe(cwes[0])
+    if not bp:
+        return f
+    # Description — only fill if scanner produced a short / empty one
+    if len((f.get("description") or "").strip()) < 50:
+        f["description"] = bp.get("description", f.get("description", ""))
+    # Remediation — same rule
+    if len((f.get("remediation") or "").strip()) < 30:
+        f["remediation"] = bp.get("remediation", f.get("remediation", ""))
+    # References — union (preserve scanner-provided refs)
+    refs = list(f.get("references") or [])
+    for r in bp.get("references", []) or []:
+        if r not in refs:
+            refs.append(r)
+    f["references"] = refs
+    return f
+
+
+# ---------------------------------------------------------------------------
 # Finding enrichment
 # ---------------------------------------------------------------------------
 
@@ -245,13 +306,24 @@ def extract_cves(finding: dict) -> list:
 
 
 def enrich_finding_dict(f: dict, *, kev_set: set | None = None,
-                        verbose: bool = False) -> dict:
-    """Enrich a finding (mutates and returns it)."""
+                        verbose: bool = False,
+                        use_boilerplate: bool = True) -> dict:
+    """Enrich a finding (mutates and returns it).
+
+    Order of operations:
+      1. Online lookups (NVD → CWE list + CVSS, KEV, EPSS) — needs CVE
+      2. Boilerplate fill (CWE-keyed local data) — needs CWE, runs even
+         when there's no CVE so SAST/DAST findings benefit too
+    """
     if kev_set is None:
         kev_set = get_kev_set()
 
     cves = extract_cves(f)
     if not cves:
+        # No CVE — but we may still have a CWE from the scanner, so try
+        # the boilerplate pass before returning.
+        if use_boilerplate:
+            apply_boilerplate(f)
         return f
 
     # Use the first CVE for canonical lookup (most findings tie to one CVE)
@@ -308,6 +380,10 @@ def enrich_finding_dict(f: dict, *, kev_set: set | None = None,
     if nvd_url not in refs:
         refs.append(nvd_url)
     f["references"] = refs
+
+    # Final pass: CWE boilerplate fill (now that NVD may have given us CWEs)
+    if use_boilerplate:
+        apply_boilerplate(f)
 
     return f
 

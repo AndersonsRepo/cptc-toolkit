@@ -1,0 +1,201 @@
+{
+  "_meta": {
+    "description": "Hand-curated boilerplate keyed by CWE ID. Used by --boilerplate to back-fill empty description/remediation fields on findings. Replaces v0.4 'PwnDoc-NG lookup' with a single, version-controlled, offline file. Contributions welcome via PR.",
+    "schema": {
+      "title": "Short human-readable title for the weakness",
+      "description": "1-3 sentence neutral definition of the weakness",
+      "remediation": "Concrete, prioritized fix steps in plain language",
+      "references": "Canonical pointers (OWASP, MITRE, NIST). Always include the MITRE CWE page."
+    },
+    "source_disciplines": ["MITRE CWE", "OWASP Top 10:2021", "OWASP WSTG", "NIST SP 800-53"]
+  },
+
+  "CWE-22": {
+    "title": "Path Traversal",
+    "description": "The application constructs filesystem paths from user-controlled input without properly canonicalizing or constraining them, allowing an attacker to access files outside the intended directory.",
+    "remediation": "Reject input containing '..', '~', and absolute path prefixes. Resolve the requested path with the language's canonicalization API (e.g., `Path.resolve()`, `realpath()`) and verify the result lives under a strict allowlist root before reading.",
+    "references": ["https://cwe.mitre.org/data/definitions/22.html", "https://owasp.org/www-community/attacks/Path_Traversal"]
+  },
+
+  "CWE-77": {
+    "title": "Command Injection",
+    "description": "User-controlled input is incorporated into a shell command or command interpreter without sanitization, allowing an attacker to execute arbitrary commands on the host.",
+    "remediation": "Never construct shell commands by string concatenation. Use language-native APIs that take an argument array (`subprocess.run([...], shell=False)`, `execve`). If shelling is unavoidable, strictly allowlist the operand and reject any character outside the allowlist.",
+    "references": ["https://cwe.mitre.org/data/definitions/77.html", "https://owasp.org/www-community/attacks/Command_Injection"]
+  },
+
+  "CWE-78": {
+    "title": "OS Command Injection",
+    "description": "Specialization of CWE-77: user input is inserted into OS-level command execution (e.g., `system()`, backticks, `exec()`) without sanitization, allowing arbitrary OS command execution under the application's user.",
+    "remediation": "Use parameterized OS APIs that accept argument arrays (e.g., `subprocess.run(['cmd', arg], shell=False)`). Drop privileges before invoking subprocesses. Run the application as a non-root user.",
+    "references": ["https://cwe.mitre.org/data/definitions/78.html"]
+  },
+
+  "CWE-79": {
+    "title": "Cross-Site Scripting (XSS)",
+    "description": "User-supplied input is reflected in a server response (reflected XSS) or stored and later rendered (stored XSS) without context-appropriate output encoding, allowing an attacker to execute JavaScript in another user's browser.",
+    "remediation": "Apply context-aware output encoding at the rendering layer — HTML body, HTML attribute, JavaScript context, URL context each require different encoding. Use the templating engine's auto-escape feature (e.g., Jinja `|e`, React JSX). Add a strict `Content-Security-Policy` header that forbids inline scripts.",
+    "references": ["https://cwe.mitre.org/data/definitions/79.html", "https://owasp.org/www-community/attacks/xss/", "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html"]
+  },
+
+  "CWE-89": {
+    "title": "SQL Injection",
+    "description": "User-supplied input is concatenated into a SQL query without separation between code and data, allowing an attacker to alter the query's intent — typically to read, modify, or destroy database contents.",
+    "remediation": "Rewrite every data-access path to use parameterized queries (prepared statements with bound parameters, or an ORM's bound-parameter API). Never build SQL by string concatenation. Apply the principle of least privilege to the database user the application connects with.",
+    "references": ["https://cwe.mitre.org/data/definitions/89.html", "https://owasp.org/www-community/attacks/SQL_Injection", "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"]
+  },
+
+  "CWE-94": {
+    "title": "Code Injection",
+    "description": "User-supplied input is interpreted as code by a language runtime (e.g., `eval()`, `Function()`, template engines with dynamic compilation), allowing an attacker to execute arbitrary code in the application's process.",
+    "remediation": "Eliminate all calls to runtime code evaluation primitives that take user input. Replace template-engine code-execution features with a safe, restricted expression language. If dynamic logic is unavoidable, sandbox it (e.g., a Wasm runtime with no host imports).",
+    "references": ["https://cwe.mitre.org/data/definitions/94.html"]
+  },
+
+  "CWE-200": {
+    "title": "Information Exposure",
+    "description": "The application discloses information about its internal state, environment, or stored data to an actor who is not explicitly authorized to receive it — via responses, headers, error messages, debug pages, or files.",
+    "remediation": "Audit every endpoint and response for over-disclosure. Strip stack traces, framework banners, and internal hostnames from error responses. Disable debug/development endpoints in production. Apply a default-deny information policy.",
+    "references": ["https://cwe.mitre.org/data/definitions/200.html"]
+  },
+
+  "CWE-209": {
+    "title": "Information Exposure Through Error Message",
+    "description": "Error messages returned to users contain sensitive details — stack traces, file paths, database queries, framework versions — that aid an attacker in reconnaissance and exploit development.",
+    "remediation": "In production, log full errors server-side and return generic messages (e.g., 'An error occurred — reference ID: abc123') to the client. Map exceptions to safe user-facing strings in middleware. Verify across every error path including 4xx and 5xx handlers.",
+    "references": ["https://cwe.mitre.org/data/definitions/209.html"]
+  },
+
+  "CWE-269": {
+    "title": "Improper Privilege Management",
+    "description": "The application does not properly assign, track, modify, or check user privileges, allowing a user to act with elevated permissions outside their intended role.",
+    "remediation": "Centralize authorization checks in a single middleware. Use role-based or attribute-based access control consistently. Apply the principle of least privilege to every endpoint and resource. Audit assignment of administrative roles regularly.",
+    "references": ["https://cwe.mitre.org/data/definitions/269.html"]
+  },
+
+  "CWE-287": {
+    "title": "Improper Authentication",
+    "description": "The application does not adequately verify a claimed identity before granting access — weak credential checks, missing multi-factor authentication, broken session handling, or accept-on-fail logic.",
+    "remediation": "Enforce strong password policies (NIST SP 800-63B). Require multi-factor authentication for all administrative and sensitive accounts. Use a vetted authentication library or framework feature; do not roll your own. Rate-limit and lock authentication endpoints to mitigate brute force.",
+    "references": ["https://cwe.mitre.org/data/definitions/287.html", "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"]
+  },
+
+  "CWE-307": {
+    "title": "Improper Restriction of Excessive Authentication Attempts",
+    "description": "The application does not limit or sufficiently slow the rate of failed authentication attempts, allowing brute-force password guessing or credential-stuffing attacks at scale.",
+    "remediation": "Implement progressive lockout after N failed attempts (e.g., 5-10) with an exponential back-off. Add CAPTCHA or device-attestation challenges after the threshold. Monitor and alert on high-volume failure patterns. Block known credential-stuffing IP ranges at the edge.",
+    "references": ["https://cwe.mitre.org/data/definitions/307.html"]
+  },
+
+  "CWE-311": {
+    "title": "Missing Encryption of Sensitive Data",
+    "description": "The application stores or transmits sensitive data — credentials, PII, payment data, secrets — without encrypting it, exposing the data to an attacker with read access to the storage or network path.",
+    "remediation": "Encrypt all sensitive data at rest (per-record envelope encryption with a KMS-managed key). Enforce TLS 1.2+ for all data in transit. Rotate encryption keys per a documented schedule. Inventory every place sensitive data lives.",
+    "references": ["https://cwe.mitre.org/data/definitions/311.html"]
+  },
+
+  "CWE-319": {
+    "title": "Cleartext Transmission of Sensitive Information",
+    "description": "The application transmits sensitive data over an unencrypted channel — HTTP, plain SMTP, plain FTP, telnet — exposing it to passive interception by anyone on the network path.",
+    "remediation": "Disable plaintext protocols at the server. Require TLS 1.2+ for every endpoint that handles sensitive data, and HSTS for all browser-facing services. Verify with a TLS scanner (`testssl.sh`, `sslyze`) that no plaintext fallback exists.",
+    "references": ["https://cwe.mitre.org/data/definitions/319.html"]
+  },
+
+  "CWE-352": {
+    "title": "Cross-Site Request Forgery (CSRF)",
+    "description": "The application accepts state-changing HTTP requests from authenticated users without verifying that the request originated from a legitimate UI flow, allowing an attacker to trigger actions on behalf of a logged-in victim via a malicious cross-origin request.",
+    "remediation": "Implement a synchronizer token pattern: a unique, unpredictable per-session token included in every state-changing form and verified server-side. For APIs, set `SameSite=Strict` on session cookies and verify `Origin` / `Referer`. Modern frameworks ship this by default — do not disable it.",
+    "references": ["https://cwe.mitre.org/data/definitions/352.html", "https://owasp.org/www-community/attacks/csrf"]
+  },
+
+  "CWE-434": {
+    "title": "Unrestricted File Upload",
+    "description": "The application accepts uploaded files without sufficiently validating their type, content, or storage location, allowing an attacker to upload a file (typically a webshell) that the server later executes as code or serves with a dangerous Content-Type.",
+    "remediation": "Validate uploaded file content via magic-byte sniffing, not the extension or `Content-Type` header. Store uploads outside the web server's document root. Serve uploads via a controller that sets a forced `Content-Disposition: attachment` and the correct narrowed `Content-Type`. Cap file size at the edge.",
+    "references": ["https://cwe.mitre.org/data/definitions/434.html", "https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload"]
+  },
+
+  "CWE-502": {
+    "title": "Insecure Deserialization",
+    "description": "The application deserializes attacker-controlled data using a language feature that can instantiate arbitrary classes or invoke methods during deserialization (Java `ObjectInputStream`, Python `pickle`, PHP `unserialize`, .NET `BinaryFormatter`), allowing remote code execution.",
+    "remediation": "Replace native-object deserialization with a data-only format (JSON, protobuf) that cannot trigger code paths. If a native serializer is unavoidable, restrict it to a known allowlist of types and sign serialized payloads with HMAC.",
+    "references": ["https://cwe.mitre.org/data/definitions/502.html", "https://owasp.org/www-community/vulnerabilities/Deserialization_of_untrusted_data"]
+  },
+
+  "CWE-538": {
+    "title": "File and Directory Information Exposure",
+    "description": "The application discloses information about files or directories that should not be reachable — typically configuration files, version-control directories (`.git/`, `.svn/`), backup files, or temporary editor files served by a misconfigured web server.",
+    "remediation": "Block access to sensitive paths (`.git/`, `.svn/`, `.env`, `~` swap files, `*.bak`) at the web server or reverse proxy layer. Audit your deployment artifact for files that should never have been packaged.",
+    "references": ["https://cwe.mitre.org/data/definitions/538.html"]
+  },
+
+  "CWE-601": {
+    "title": "URL Redirection to Untrusted Site (Open Redirect)",
+    "description": "The application redirects users to a URL specified in a request parameter without verifying that the destination is on an allowlist, enabling phishing and social-engineering attacks that abuse the application's trusted domain.",
+    "remediation": "Maintain a strict server-side allowlist of permitted redirect targets. Pass redirect destinations as an index (e.g., `?next=dashboard`) rather than a URL. If a URL parameter is unavoidable, parse it server-side and reject anything outside the allowlist.",
+    "references": ["https://cwe.mitre.org/data/definitions/601.html"]
+  },
+
+  "CWE-611": {
+    "title": "XML External Entity (XXE)",
+    "description": "An XML parser is configured to resolve external entity references in untrusted XML input, allowing an attacker to read local files, perform server-side request forgery, or cause denial of service.",
+    "remediation": "Disable DTD processing and external entity resolution in every XML parser the application uses (set `XMLConstants.FEATURE_SECURE_PROCESSING` in Java, `defusedxml` in Python, `LIBXML_NONET | LIBXML_DTDLOAD` in PHP). Prefer JSON over XML for new APIs.",
+    "references": ["https://cwe.mitre.org/data/definitions/611.html", "https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html"]
+  },
+
+  "CWE-639": {
+    "title": "Authorization Bypass Through User-Controlled Key (IDOR)",
+    "description": "The application uses identifiers from user input to fetch or modify resources without verifying that the requesting user is authorized to access the referenced resource — Insecure Direct Object Reference.",
+    "remediation": "Verify ownership / authorization on every resource access path, not just the navigation path. Replace sequential numeric IDs with unpredictable identifiers (UUIDv4) so enumeration is infeasible. Centralize the authorization check in a middleware shared by every controller.",
+    "references": ["https://cwe.mitre.org/data/definitions/639.html", "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"]
+  },
+
+  "CWE-693": {
+    "title": "Missing Security Headers / Protection Mechanism Failure",
+    "description": "The application does not send one or more recommended HTTP security headers (`Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`), leaving users exposed to risks (downgrade, XSS, MIME-sniffing, leakage) the headers are designed to mitigate.",
+    "remediation": "Add the recommended OWASP Secure Headers set at the edge / framework layer. Verify with `securityheaders.com` or `testssl.sh`. Treat the header set as part of the framework defaults, not opt-in.",
+    "references": ["https://cwe.mitre.org/data/definitions/693.html", "https://owasp.org/www-project-secure-headers/"]
+  },
+
+  "CWE-732": {
+    "title": "Incorrect Permission Assignment for Critical Resource",
+    "description": "The application or its installer assigns permissions to a critical resource — file, directory, registry key, AD object — that are broader than necessary, allowing an unintended actor to read or modify it.",
+    "remediation": "Apply the principle of least privilege. Audit the deployment for world-writable files (`find / -perm -o+w`). For Active Directory, run BloodHound and remediate any GenericAll / WriteOwner / WriteDACL edges from non-admin principals to privileged objects.",
+    "references": ["https://cwe.mitre.org/data/definitions/732.html"]
+  },
+
+  "CWE-798": {
+    "title": "Use of Hard-coded Credentials",
+    "description": "The source code, build artifact, or configuration contains credentials (passwords, API keys, tokens, private keys) in plaintext, exposing them to anyone with read access to the artifact.",
+    "remediation": "Remove every hardcoded secret from version control. Rotate them — the compromised values must be considered burned. Load secrets at runtime from a secret-management service (AWS Secrets Manager, HashiCorp Vault, Kubernetes Secrets with encrypted etcd). Run `gitleaks` or `trufflehog` in CI to prevent regressions.",
+    "references": ["https://cwe.mitre.org/data/definitions/798.html"]
+  },
+
+  "CWE-862": {
+    "title": "Missing Authorization",
+    "description": "The application performs a sensitive action (state change, data access, administrative operation) without checking whether the requesting user is authorized to perform it.",
+    "remediation": "Add an explicit authorization check on every sensitive endpoint, not just the navigation layer. Centralize the check in a middleware so it cannot be forgotten. Treat the absence of an explicit check as a missing test; CI should fail when an endpoint lacks one.",
+    "references": ["https://cwe.mitre.org/data/definitions/862.html"]
+  },
+
+  "CWE-863": {
+    "title": "Incorrect Authorization",
+    "description": "The application performs an authorization check but does so incorrectly — wrong subject, wrong resource, wrong action, or with a fail-open default — allowing an unauthorized actor to perform the action.",
+    "remediation": "Audit every authorization predicate. Default to deny, then explicitly allow. Cover the check with negative tests (e.g., 'low-priv user cannot perform admin action'). Use a uniform policy language (OPA, Casbin) instead of ad-hoc predicates scattered across the codebase.",
+    "references": ["https://cwe.mitre.org/data/definitions/863.html"]
+  },
+
+  "CWE-918": {
+    "title": "Server-Side Request Forgery (SSRF)",
+    "description": "The application makes an outbound HTTP (or other protocol) request to a URL supplied or influenced by user input, allowing an attacker to reach internal services (cloud metadata endpoints, internal admin panels) from the server's network position.",
+    "remediation": "Maintain a strict allowlist of permitted outbound hosts. Block RFC 1918, loopback, link-local (169.254/16), and cloud metadata addresses at the network layer for outbound calls from the application tier. Use an egress proxy that enforces the allowlist independently of application code.",
+    "references": ["https://cwe.mitre.org/data/definitions/918.html", "https://owasp.org/www-community/attacks/Server_Side_Request_Forgery"]
+  },
+
+  "CWE-1021": {
+    "title": "UI Redress (Clickjacking)",
+    "description": "The application can be embedded inside an attacker-controlled page via a frame or iframe, allowing the attacker to overlay invisible UI on top of the application and trick the user into clicking on sensitive controls.",
+    "remediation": "Send `Content-Security-Policy: frame-ancestors 'none'` (or a narrow allowlist) on every page. Legacy fallback: send `X-Frame-Options: DENY`. Verify with `securityheaders.com`.",
+    "references": ["https://cwe.mitre.org/data/definitions/1021.html"]
+  }
+}

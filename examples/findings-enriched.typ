@@ -35,7 +35,7 @@
   remediation: [Upgrade Apache Log4j2 to a version of 2.17.0 (Java 8) or 2.12.3 (Java 7) or 2.3.1 (Java 6).],
   cwe: ("CWE-77", "CWE-502", "CWE-20", "CWE-400", "CWE-917"),
   compliance: ("CISA KEV (actively exploited)",),
-  references: ("https://logging.apache.org/log4j/2.x/security.html", "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"),
+  references: ("https://logging.apache.org/log4j/2.x/security.html", "https://nvd.nist.gov/vuln/detail/CVE-2021-44228", "https://cwe.mitre.org/data/definitions/77.html", "https://owasp.org/www-community/attacks/Command_Injection"),
 )
 
 // Source: nuclei:['pdteam']
@@ -65,58 +65,12 @@
 #raw("HTTP/1.1 200 OK\n\n[core]\n    repositoryformatversion = 0\n[remote \"origin\"]\n    url = git@github.com:client/internal-app.git\n", block: true, lang: "http")],
   remediation: [Block access to .git/ at the web server or reverse proxy layer.],
   cwe: ("CWE-538",),
-  references: ("https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/01-Information_Gathering/03-Review_Webserver_Metafiles_for_Information_Leakage",),
-)
-
-// Source: sarif:owasp zap
-#finding(
-  id: "F-003",
-  title: "Reflected Cross-Site Scripting",
-  severity: "medium",
-  cvss-score: 6.1,
-  cvss-vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
-  cvss-criteria: (av: "Network", ac: "Low", pr: "None", ui: "Required", s: "Changed", c: "Low", i: "Low", a: "None"),
-  hosts: ("https://app.example.com/support/search?q=<script>alert(1)</script>",),
-  impact: "Medium",
-  likelihood: "Medium",
-  status: "open",
-  axis-risk: "medium",
-  axis-sophistication: "medium",
-  axis-remediation: "low",
-  description: [Reflected XSS detected on the `q` parameter of the support search page. The unescaped value is rendered inside an inline <script> block.],
-  business-impact: [\[Business impact pending — write 2–4 sentences in client terms.\]],
-  remediation: [Phase: Architecture and Design — Use a vetted library or framework that does not allow this weakness to occur (e.g., the Anti-XSS library) or provides constructs that make this weakness easier to avoid.],
-  cwe: ("CWE-79",),
-  owasp: ("OWASP A03:2021",),
-  references: ("https://www.zaproxy.org/docs/alerts/40012/",),
-)
-
-// Source: sarif:owasp zap
-#finding(
-  id: "F-004",
-  title: "Cross-Site Request Forgery: missing anti-CSRF token",
-  severity: "medium",
-  cvss-score: 4.3,
-  cvss-vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N",
-  cvss-criteria: (av: "Network", ac: "Low", pr: "None", ui: "Required", s: "Unchanged", c: "None", i: "Low", a: "None"),
-  hosts: ("https://app.example.com/profile/update",),
-  impact: "Medium",
-  likelihood: "Medium",
-  status: "open",
-  axis-risk: "medium",
-  axis-sophistication: "medium",
-  axis-remediation: "low",
-  description: [The HTML form on /profile/update does not include an anti-CSRF token. A logged-in victim can be forced into changing their profile via a malicious cross-origin request.],
-  business-impact: [\[Business impact pending — write 2–4 sentences in client terms.\]],
-  remediation: [Use a synchronizer token pattern: a unique per-session token included in every state-changing form and verified server-side.],
-  cwe: ("CWE-352",),
-  owasp: ("OWASP A01:2021",),
-  references: ("https://www.zaproxy.org/docs/alerts/10202/",),
+  references: ("https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/01-Information_Gathering/03-Review_Webserver_Metafiles_for_Information_Leakage", "https://cwe.mitre.org/data/definitions/538.html"),
 )
 
 // Source: nuclei:['pdteam']
 #finding(
-  id: "F-005",
+  id: "F-003",
   title: "HTTP Missing Security Headers (Strict-Transport-Security, CSP)",
   severity: "info",
   cvss-score: 0.0,
@@ -131,5 +85,5 @@
   business-impact: [\[Business impact pending — write 2–4 sentences in client terms.\]],
   remediation: [Add Strict-Transport-Security (HSTS) and a restrictive Content-Security-Policy header to all responses at the edge / framework layer.],
   cwe: ("CWE-693",),
-  references: ("https://owasp.org/www-project-secure-headers/",),
+  references: ("https://owasp.org/www-project-secure-headers/", "https://cwe.mitre.org/data/definitions/693.html"),
 )
