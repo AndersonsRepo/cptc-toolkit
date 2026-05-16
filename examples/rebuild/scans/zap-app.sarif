@@ -1,0 +1,53 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "OWASP ZAP",
+          "version": "2.15.0",
+          "informationUri": "https://www.zaproxy.org/",
+          "rules": [
+            {
+              "id": "40012",
+              "name": "Cross Site Scripting (Reflected)",
+              "shortDescription": { "text": "Reflected XSS in Support Ticket Search" },
+              "fullDescription": {
+                "text": "The support search page reflects the unescaped `q` query parameter inside an inline <script> block, enabling reflected XSS against any user who follows a crafted link."
+              },
+              "help": {
+                "text": "Apply context-aware output encoding (use the templating layer's auto-escape feature) and add a strict Content-Security-Policy header that disables inline scripts."
+              },
+              "helpUri": "https://www.zaproxy.org/docs/alerts/40012/",
+              "defaultConfiguration": { "level": "warning" },
+              "properties": {
+                "security-severity": "6.1",
+                "cvssV3_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+                "tags": ["CWE-79", "OWASP A03:2021"]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "40012",
+          "level": "warning",
+          "message": {
+            "text": "Reflected XSS detected on the `q` parameter of /support/search. The unescaped value is rendered inside an inline <script> block."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://app.example.com/support/search?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
