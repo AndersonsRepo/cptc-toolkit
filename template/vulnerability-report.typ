@@ -399,6 +399,14 @@
   if compliance.len() > 0   { ref-rows.push(([Compliance], compliance.join(", "))) }
   if references.len() > 0   { ref-rows.push(([References], references.map(r => link(r)).join(", "))) }
 
+  // Helper: section sub-label (Description / Business Impact / …)
+  let sublabel(name) = text(size: 9pt, weight: "semibold",
+    fill: BRAND.primary.darken(5%), name)
+
+  // Helper: small muted field label (Impact / Likelihood / …)
+  let fieldlabel(name) = text(size: 8pt, weight: "semibold",
+    fill: BRAND.muted, name)
+
   figure(
     kind: "finding",
     supplement: [Finding],
@@ -406,35 +414,33 @@
     block(
       breakable: true,
       width: 100%,
-      stroke: (left: 5pt + s.color, rest: 0.5pt + BRAND.border),
-      radius: (right: 6pt),
+      stroke: (left: 4pt + s.color, rest: 0.5pt + BRAND.border),
+      radius: (right: 4pt),
       inset: 0pt,
       [
-        // ────── Header strip with CVSS badge + title + sev pill + status
-        #block(fill: s.color.lighten(94%), inset: 14pt, width: 100%, [
+        // ── Header: badge + ID/title + sev + status (CVSS pill dropped — badge shows it)
+        #block(fill: s.color.lighten(94%), inset: 12pt, width: 100%, [
           #grid(
             columns: (auto, 1fr, auto),
-            column-gutter: 14pt,
+            column-gutter: 12pt,
             align: (horizon + left, horizon + left, horizon + right),
             cvss-badge(cvss-score, severity),
             [
-              #text(size: 9pt, fill: BRAND.muted, weight: "medium",
+              #text(size: 8.5pt, fill: BRAND.muted, weight: "medium",
                 tracking: 0.6pt, upper(raw(id)))
-              #v(-4pt)
-              #text(size: 16pt, weight: "bold", fill: BRAND.primary, title)
+              #v(-3pt)
+              #text(size: 15pt, weight: "bold", fill: BRAND.primary, title)
             ],
-            stack(dir: ltr, spacing: 6pt,
+            stack(dir: ltr, spacing: 4pt,
               sev-pill(severity),
-              pill(text(weight: "bold")[CVSS #cvss-score],
-                fill: BRAND.soft, stroke-color: BRAND.border),
               status-pill(status),
             ),
           )
         ])
 
-        // ────── Triptych (Risk | Sophistication | Remediation)
+        // ── Triptych (only when explicitly set)
         #if axis-risk != none and axis-sophistication != none and axis-remediation != none [
-          #block(inset: (x: 14pt, top: 12pt, bottom: 6pt), width: 100%,
+          #block(inset: (x: 12pt, top: 10pt, bottom: 4pt), width: 100%,
             triptych(
               risk: axis-risk,
               sophistication: axis-sophistication,
@@ -443,89 +449,64 @@
           )
         ]
 
-        // ────── Meta row (Impact / Likelihood / Affected scope)
-        #block(inset: 14pt, width: 100%, stroke: (top: 0.5pt + BRAND.border), [
-          #grid(columns: (1fr, 1fr, 2fr), column-gutter: 14pt, row-gutter: 6pt,
+        // ── Meta row: Impact · Likelihood · Affected scope (Status dropped — header has it)
+        #block(inset: 12pt, width: 100%, stroke: (top: 0.5pt + BRAND.border), [
+          #grid(columns: (1fr, 1fr, 2fr), column-gutter: 12pt, row-gutter: 4pt,
+            [#fieldlabel[Impact] \ #text(size: 10.5pt, impact)],
+            [#fieldlabel[Likelihood] \ #text(size: 10.5pt, likelihood)],
             [
-              #text(size: 8pt, fill: BRAND.muted, weight: "bold",
-                tracking: 0.6pt)[IMPACT]
-              #v(-2pt)
-              #text(size: 11pt, impact)
-            ],
-            [
-              #text(size: 8pt, fill: BRAND.muted, weight: "bold",
-                tracking: 0.6pt)[LIKELIHOOD]
-              #v(-2pt)
-              #text(size: 11pt, likelihood)
-            ],
-            [
-              #text(size: 8pt, fill: BRAND.muted, weight: "bold",
-                tracking: 0.6pt)[AFFECTED SCOPE]
-              #v(-2pt)
+              #fieldlabel[Affected scope] \
               #if hosts.len() > 0 [
                 #hosts.map(h => raw(h)).join(", ")
               ] else [—]
             ],
           )
           #if cvss-vector != "" [
-            #v(6pt)
-            #text(size: 8pt, fill: BRAND.muted, weight: "bold",
-              tracking: 0.6pt)[CVSS VECTOR] \
+            #v(4pt)
+            #fieldlabel[CVSS vector] \
             #raw(cvss-vector)
           ]
         ])
 
-        // ────── Optional banded CVSS criteria rubric table
+        // ── Optional CVSS criteria rubric table
         #if cvss-criteria != none [
-          #block(inset: 14pt, width: 100%, stroke: (top: 0.5pt + BRAND.border),
+          #block(inset: 12pt, width: 100%, stroke: (top: 0.5pt + BRAND.border),
             cvss-criteria-table(cvss-criteria)
           )
         ]
 
-        // ────── Body — description / impact / evidence / remediation
-        #block(inset: 14pt, width: 100%, stroke: (top: 0.5pt + BRAND.border), [
-          #text(size: 8pt, fill: BRAND.muted, weight: "bold",
-            tracking: 0.6pt)[VULNERABILITY DESCRIPTION]
-          #v(3pt); #description
-          #v(12pt)
-          #text(size: 8pt, fill: BRAND.muted, weight: "bold",
-            tracking: 0.6pt)[BUSINESS IMPACT]
-          #v(3pt); #business-impact
+        // ── Body: description / impact / evidence / remediation (compact, no UPPERCASE)
+        #block(inset: 12pt, width: 100%, stroke: (top: 0.5pt + BRAND.border), [
+          #sublabel[Description]
+          #v(2pt); #description
+          #v(8pt)
+          #sublabel[Business impact]
+          #v(2pt); #business-impact
           #if evidence != [] [
-            #v(12pt)
-            #text(size: 8pt, fill: BRAND.muted, weight: "bold",
-              tracking: 0.6pt)[PROOF OF CONCEPT / EVIDENCE]
-            #v(3pt); #evidence
+            #v(8pt)
+            #sublabel[Proof of concept]
+            #v(2pt); #evidence
           ]
-          #v(12pt)
-          #text(size: 8pt, fill: BRAND.muted, weight: "bold",
-            tracking: 0.6pt)[REMEDIATION]
-          #v(3pt); #remediation
+          #v(8pt)
+          #sublabel[Remediation]
+          #v(2pt); #remediation
           #if ref-rows.len() > 0 [
-            #v(12pt)
-            #block(fill: BRAND.soft, inset: 10pt, radius: 4pt, width: 100%,
-              table(columns: (auto, 1fr), column-gutter: 14pt,
-                row-gutter: 4pt, stroke: none, inset: 2pt,
+            #v(8pt)
+            #block(fill: BRAND.soft, inset: 8pt, radius: 3pt, width: 100%,
+              table(columns: (auto, 1fr), column-gutter: 12pt,
+                row-gutter: 3pt, stroke: none, inset: 2pt,
                 ..ref-rows.map(r => (
-                  text(size: 8pt, weight: "bold", fill: BRAND.muted, r.at(0)),
+                  text(size: 8pt, weight: "semibold", fill: BRAND.muted, r.at(0)),
                   text(size: 9pt, r.at(1)),
                 )).flatten()
               )
             )
           ]
         ])
-
-        // ────── Footer hairline w/ finding ID
-        #block(fill: BRAND.soft, inset: (x: 14pt, y: 5pt), width: 100%,
-          stroke: (top: 0.5pt + BRAND.border),
-          align(right, text(size: 8pt, fill: BRAND.muted)[
-            #raw(id) · #upper(severity) · CVSS #cvss-score
-          ])
-        )
       ]
     )
   )
-  v(0.8em)
+  v(0.5em)
 }
 
 
