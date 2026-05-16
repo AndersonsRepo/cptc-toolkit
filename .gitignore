@@ -1,0 +1,23 @@
+# Build artifacts
+*.pdf
+!examples/test-report.pdf
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Local scratch
+scratch/
+tmp/
+*.bak

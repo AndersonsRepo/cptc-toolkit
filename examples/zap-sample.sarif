@@ -1,0 +1,87 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "OWASP ZAP",
+          "version": "2.15.0",
+          "informationUri": "https://www.zaproxy.org/",
+          "rules": [
+            {
+              "id": "40012",
+              "name": "Cross Site Scripting (Reflected)",
+              "shortDescription": { "text": "Reflected Cross-Site Scripting" },
+              "fullDescription": {
+                "text": "Cross-site Scripting (XSS) is an attack technique that involves echoing attacker-supplied code into a user's browser instance. A browser instance can be a standard web browser client, or a browser object embedded in a software product."
+              },
+              "help": {
+                "text": "Phase: Architecture and Design — Use a vetted library or framework that does not allow this weakness to occur (e.g., the Anti-XSS library) or provides constructs that make this weakness easier to avoid."
+              },
+              "helpUri": "https://www.zaproxy.org/docs/alerts/40012/",
+              "defaultConfiguration": { "level": "error" },
+              "properties": {
+                "security-severity": "6.1",
+                "cvssV3_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+                "tags": ["CWE-79", "OWASP A03:2021"]
+              }
+            },
+            {
+              "id": "10202",
+              "name": "Absence of Anti-CSRF Tokens",
+              "shortDescription": { "text": "Cross-Site Request Forgery: missing anti-CSRF token" },
+              "fullDescription": {
+                "text": "No Anti-CSRF tokens were found in a HTML submission form. A cross-site request forgery is an attack that involves forcing a victim to send an HTTP request to a target destination without their knowledge or intent in order to perform an action as the victim."
+              },
+              "help": {
+                "text": "Use a synchronizer token pattern: a unique per-session token included in every state-changing form and verified server-side."
+              },
+              "helpUri": "https://www.zaproxy.org/docs/alerts/10202/",
+              "defaultConfiguration": { "level": "warning" },
+              "properties": {
+                "security-severity": "4.3",
+                "cvssV3_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N",
+                "tags": ["CWE-352", "OWASP A01:2021"]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "40012",
+          "level": "error",
+          "message": {
+            "text": "Reflected XSS detected on the `q` parameter of the support search page. The unescaped value is rendered inside an inline <script> block."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://app.example.com/support/search?q=<script>alert(1)</script>"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "10202",
+          "level": "warning",
+          "message": {
+            "text": "The HTML form on /profile/update does not include an anti-CSRF token. A logged-in victim can be forced into changing their profile via a malicious cross-origin request."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://app.example.com/profile/update"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
